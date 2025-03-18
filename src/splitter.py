@@ -27,6 +27,6 @@ class NoteSplitter(RecursiveCharacterTextSplitter):
                 texts.append(md_doc.page_content)
 
                 metadatas.append(
-                    md_doc.metadata | doc.metadata | {"book": md_doc.metadata.get("header1")})
+                    md_doc.metadata | doc.metadata | {"note": md_doc.metadata.get("header1")})
 
         return self.create_documents(texts, metadatas=metadatas)

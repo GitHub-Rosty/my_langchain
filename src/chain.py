@@ -1,7 +1,7 @@
 from .utils import get_vector_store, get_model
-from .retriever import WebRetiever, get_multi_query_law_retriever
-from .prompt import note_prompt, check_note_prompt, HYPO_QUESTION_PROMPT
-from .combine import combine_law_docs, combine_web_docs
+from .retriever import WebRetriever, get_multi_query_retriever
+from .prompt import NOTE_PROMPT, CHECK_NOTE_PROMPT, HYPO_QUESTION_PROMPT
+from .combine import combine_note_docs, combine_web_docs
 
 from langchain.chains.retrieval_qa.base import BaseRetrievalQA
 from langchain.chains.combine_documents.stuff import StuffDocumentsChain
@@ -37,23 +37,23 @@ class NoteStuffDocumentsChain(StuffDocumentsChain):
         web = defaultdict(list)
         for doc in docs:
             metadata = doc.metadata
-            if 'book' in metadata:
-                law_book[metadata["book"]].append(
+            if "note" in metadata:
+                note[metadata["note"]].append(
                     format_document(doc, self.document_prompt).strip("\n"))
             elif 'link' in metadata:
-                law_web[metadata["title"]].append(
+                web[metadata["title"]].append(
                     format_document(doc, self.document_prompt).strip("\n"))
 
-        law_str = ""
-        for book, page_contents in law_book.items():
-            law_str += f"《{book}》\n"
-            law_str += "\n".join(page_contents)
-            law_str += "\n\n"
+        str = ""
+        for note, page_contents in note.items():
+            str += f"《{note}》\n"
+            str += "\n".join(page_contents)
+            str += "\n\n"
 
-        for web, page_contents in law_web.items():
-            law_str += f"网页：{web}\n"
-            law_str += "\n".join(page_contents)
-            law_str += "\n\n"
+        for web, page_contents in web.items():
+            str += f"网页：{web}\n"
+            str += "\n".join(page_contents)
+            str += "\n\n"
 
         # {key: value for item in iterable if condition}快速字典生成式
         inputs = {
@@ -61,7 +61,7 @@ class NoteStuffDocumentsChain(StuffDocumentsChain):
             for k, v in kwargs.items() # 返回键值对列表
             if k in self.llm_chain.prompt.input_variables
         }
-        inputs[self.document_variable_name] = law_str
+        inputs[self.document_variable_name] = str
         return inputs
 
 
@@ -106,7 +106,7 @@ class NoteQAChain(BaseRetrievalQA):
     @property
     def _chain_type(self) -> str:
         """Return the chain type."""
-        return "law_qa"
+        return "QA"
 
     @classmethod
     def from_llm(
@@ -140,7 +140,7 @@ class NoteQAChain(BaseRetrievalQA):
 def get_check_ai_chain(config: Any) -> Chain:
     model = get_model()
 
-    check_chain = check_note_prompt | model | BooleanOutputParser()
+    check_chain = CHECK_NOTE_PROMPT | model | BooleanOutputParser()
 
     return check_chain
 
@@ -149,43 +149,43 @@ def get_note_chain(config: Any, out_callback: AsyncIteratorCallbackHandler) -> C
     note_vs = get_vector_store("note")
     web_vs = get_vector_store("web")
 
-    vs_retriever = note_vs.as_retriever(search_kwargs={"k": config.LAW_VS_SEARCH_K})
-    web_retriever = WebRetiever(
+    vs_retriever = note_vs.as_retriever(search_kwargs={"k": config.NOTE_VS_SEARCH_K})
+    web_retriever = WebRetriever(
         vectorstore=web_vs,
         num_search_results=config.WEB_VS_SEARCH_K
     )
 
-    multi_query_retriver = get_multi_query_law_retriever(vs_retriever, get_model())
+    multi_query_retriver = get_multi_query_retriever(vs_retriever, get_model())
 
     callbacks = [out_callback] if out_callback else []
 
     chain = ( # 将输入映射到多个输出
         RunnableMap(
             {
-                "law_docs": itemgetter("question") | multi_query_retriver,
+                "note_docs": itemgetter("question") | multi_query_retriver,
                 'web_docs': itemgetter("question") | web_retriever,
-                "question": lambda x: x["question"]}
+                "question": itemgetter("question")}#lambda x: x["question"]}
         )
-        | RunnableMap(
+        | RunnableMap( # lambda中是上一层RunnableMap的参数
             {
-                "law_docs": lambda x: x["law_docs"],
+                "note_docs": lambda x: x["note_docs"],
                 "web_docs": lambda x: x["web_docs"],
-                "law_context": lambda x: combine_law_docs(x["law_docs"]),
+                "note_context": lambda x: combine_note_docs(x["note_docs"]),
                 "web_context": lambda x: combine_web_docs(x["web_docs"]),
                 "question": lambda x: x["question"]}
         )
         | RunnableMap({
-                "law_docs": lambda x: x["law_docs"],
+                "note_docs": lambda x: x["note_docs"],
                 "web_docs": lambda x: x["web_docs"],
-                "law_context": lambda x: x["law_context"],
+                "note_context": lambda x: x["note_context"],
                 "web_context": lambda x: x["web_context"],
-                "prompt": note_prompt
+                "prompt": NOTE_PROMPT
             }
         )
         | RunnableMap({
-            "law_docs": lambda x: x["law_docs"],
+            "note_docs": lambda x: x["note_docs"],
             "web_docs": lambda x: x["web_docs"],
-            "law_context": lambda x: x["law_context"],
+            "note_context": lambda x: x["note_context"],
             "web_context": lambda x: x["web_context"],
             "answer": itemgetter("prompt") | get_model(callbacks=callbacks) | StrOutputParser()
         })
@@ -217,7 +217,7 @@ def get_hypo_questions_chain(config: Any) -> Chain:
     ]
 
     chain = (
-        {"context": lambda x: f"《{x.metadata['book']}》{x.page_content}"}
+        {"context": lambda x: f"《{x.metadata["note"]}》{x.page_content}"}
         | HYPO_QUESTION_PROMPT
         | model.bind(functions=functions, function_call={"name": "hypothetical_questions"})
         | JsonKeyOutputFunctionsParser(key_name="questions")

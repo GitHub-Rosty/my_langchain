@@ -8,16 +8,16 @@ def combine_note_docs(docs: List[Document]) -> str:
     note = defaultdict(list)
     for doc in docs:
         metadata = doc.metadata
-        if 'book' in metadata:
-            law_books[metadata["book"]].append(doc)
+        if '"note"' in metadata:
+            note[metadata["note"]].append(doc)
 
-    law_str = ""
-    for book, docs in law_books.items():
-        law_str += f"相关法律：《{book}》\n"
-        law_str += "\n".join([doc.page_content.strip("\n") for doc in docs])
-        law_str += "\n"
+    str = ""
+    for note, docs in note.items():
+        str += f"相关笔记内容：《{note}》\n"
+        str += "\n".join([doc.page_content.strip("\n") for doc in docs])
+        str += "\n"
 
-    return law_str
+    return str
 
 
 def combine_web_docs(docs: List[Document]) -> str:

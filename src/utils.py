@@ -1,8 +1,8 @@
 from langchain.chat_models import ChatOpenAI
-# from langchain.callbacks.manager import Callbacks
+from langchain.callbacks.manager import Callbacks
 from langchain.indexes import SQLRecordManager, index
 from langchain_core.documents import Document
-from langchain.vectorstores import Chroma 
+from langchain_community.vectorstores import Chroma
 from langchain.storage import LocalFileStore
 from langchain.embeddings import OpenAIEmbeddings, CacheBackedEmbeddings
 from langchain.indexes._api import _batch
@@ -15,7 +15,7 @@ from collections import defaultdict
 def get_model(
         model: str="gpt-4o-mini",
         stream: bool=True,
-        # callbacks: Callbacks=None, # 很勾八难用
+        callbacks: Callbacks=None, # 很勾八难用
     ) -> ChatOpenAI:
     return ChatOpenAI(model=model, stream=stream)
 
@@ -34,8 +34,8 @@ def get_record_manager(namespace: str="note") -> SQLRecordManager:
 
 def get_vector_store(collection_name: str="note") -> Chroma:
     vector_store = Chroma(
-    collection_name="collection_name",
-    embedding_function=get_cached_embedder,
+    collection_name=collection_name,
+    embedding_function=get_cached_embedder(),
     persist_directory="./chroma_langchain_db",  # Where to save data locally, remove if not necessary
 )
     return vector_store

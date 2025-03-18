@@ -13,10 +13,9 @@ from langchain.retrievers.multi_query import MultiQueryRetriever
 from duckduckgo_search.exceptions import DuckDuckGoSearchException
 
 from .prompt import MULTI_QUERY_PROMPT_TEMPLATE
-from .utils import get_model
 
 
-class WebRetiever(BaseRetriever):
+class WebRetriever(BaseRetriever):
     
     vectorstore: VectorStore = Field(
         ..., description="Vector store for storing web pages"
@@ -69,7 +68,7 @@ class LineListOutputParser(PydanticOutputParser):
         return LineList(lines=lines)
 
 
-def get_multi_query_retirever(retriever: BaseRetriever, model: BaseModel) -> BaseRetriever:
+def get_multi_query_retriever(retriever: BaseRetriever, model: BaseModel) -> BaseRetriever:
     output_parser = LineListOutputParser()
 
     llm_chain = LLMChain(llm=model, prompt=MULTI_QUERY_PROMPT_TEMPLATE, output_parser=output_parser)
